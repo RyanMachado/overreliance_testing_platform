@@ -15,14 +15,14 @@ def init_db():
     load_dotenv(find_dotenv())
 
     # Variables
-    # username = os.getenv('MONGODB_UID')
-    # cluster = os.getenv('MONGODB_CLUSTER_NAME')
-    # authSource = os.getenv('MONGODB_AUTH')
-    # password = quote_plus(os.getenv('MONGODB_PWD'))
+    username = os.getenv('MONGODB_UID')
+    cluster = os.getenv('MONGODB_CLUSTER_NAME')
+    authSource = os.getenv('MONGODB_AUTH')
+    password = quote_plus(os.getenv('MONGODB_PWD'))
 
     # URI string
-   # uri = username + ':' + password + '@' + cluster + authSource
-    uri = os.getenv('MONGODB_URI')
+    uri = "mongodb+srv://" + username + ':' + password + '@' + cluster + authSource
+    # uri = os.getenv('MONGODB_URI')
 
     # Initialize MongoDB client
     client = MongoClient(uri)
@@ -117,4 +117,3 @@ def insert_user_response(responses):
     else:
         print("failed!")
 
-# Add more functions as needed
