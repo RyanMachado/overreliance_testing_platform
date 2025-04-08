@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
+    <script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Python Quiz</title>
@@ -9,6 +10,32 @@
       href="{{ url_for('static', filename='css/style.css') }}"
     />
   </head>
+  <script>
+    const gazeEnabledPages = ["/","/quiz", "/question"];
+  
+    if (gazeEnabledPages.includes(window.location.pathname)) {
+      webgazer.setRegression('ridge')
+        .setGazeListener((data, elapsedTime) => {
+          if (!data) return;
+          const payload = {
+            x: data.x,
+            y: data.y,
+            timestamp: elapsedTime,
+            page: window.location.pathname
+          };
+  
+          fetch("/log-eyedata", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+        })
+        .showPredictionPoints(true)  // Optional
+        .begin();
+    }
+  </script>
+  
+  
   <body>
     <div class="container">{% block content %}{% endblock %}</div>
     {% block scripts %}{% endblock %}

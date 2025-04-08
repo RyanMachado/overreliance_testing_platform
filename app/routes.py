@@ -71,6 +71,21 @@ def index():
     
     return render_template("index.html")
 
+@main_bp.route("/log-eyedata", methods=["POST"])
+def log_eyedata():
+    from datetime import datetime
+
+    data = request.get_json()
+    data["user"] = session.get("user", "anonymous")
+    data["timestamp_server"] = datetime.utcnow().isoformat()
+
+    from .utils.db import get_db
+    db = get_db()
+    db.eye_tracking.insert_one(data)
+
+    return jsonify({"status": "success"})
+
+
 @main_bp.route("/email_error")
 def email_error():
     return render_template("email_error.html")
