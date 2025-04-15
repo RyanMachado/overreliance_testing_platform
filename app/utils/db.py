@@ -116,4 +116,21 @@ def insert_user_response(responses):
         print("success!")
     else:
         print("failed!")
+        
+def get_db():
+    # Load .env variables
+    load_dotenv(find_dotenv())
+
+    username = os.getenv('MONGODB_UID')
+    cluster = os.getenv('MONGODB_CLUSTER_NAME')
+    authSource = os.getenv('MONGODB_AUTH')
+    password = quote_plus(os.getenv('MONGODB_PWD'))
+
+    uri = "mongodb+srv://" + username + ':' + password + '@' + cluster + authSource
+
+    client = MongoClient(uri)
+
+    # Return the full database object, not just a collection
+    return client.test  # or whatever DB name you're actually using
+
 

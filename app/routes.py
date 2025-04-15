@@ -71,13 +71,32 @@ def index():
     
     return render_template("index.html")
 
-@main_bp.route("/log-eyedata", methods=["POST"])
-def log_eyedata():
-    from datetime import datetime
+@main_bp.route("/jspsych-calibration")
+def jspsych_calibration():
+    return render_template("jspsych_calibration.html")
+
+@main_bp.route("/log-calibration", methods=["POST"])
+def log_calibration():
+    from .utils.db import get_db
+    from datetime import datetime, timezone
 
     data = request.get_json()
     data["user"] = session.get("user", "anonymous")
-    data["timestamp_server"] = datetime.utcnow().isoformat()
+    data["timestamp"] = datetime.now(timezone.utc).isoformat()
+
+    db = get_db()
+    db.calibration_results.insert_one(data)
+
+    session["calibrated"] = True
+    return jsonify({"status": "calibration saved"})
+
+@main_bp.route("/log-eyedata", methods=["POST"])
+def log_eyedata():
+    data = request.get_json()
+    data["user"] = session.get("user", "anonymous")
+    from datetime import datetime, timezone
+    data["timestamp_server"] = datetime.now(timezone.utc).isoformat()
+
 
     from .utils.db import get_db
     db = get_db()
@@ -154,6 +173,10 @@ def validate_email():
 
 @main_bp.route("/quiz", methods=["GET", "POST"])
 def quiz():
+    # if not session.get("calibrated"):
+    #     flash("Please complete the eye-tracking calibration before starting the quiz.")
+    #     return redirect(url_for("main.jspsych_calibration"))
+
     def insert_at_index(lst, index, value):
         if index >= len(lst):
             lst.extend([0] * (index - len(lst) + 1))  # Extend the list with 0s

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <script src="https://webgazer.cs.brown.edu/webgazer.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/jspsych/jspsych@jspsych@7.0.0/examples/js/webgazer/webgazer.js"></script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Python Quiz</title>
@@ -10,34 +10,60 @@
       href="{{ url_for('static', filename='css/style.css') }}"
     />
   </head>
-  <script>
-    const gazeEnabledPages = ["/","/quiz", "/question"];
-  
-    if (gazeEnabledPages.includes(window.location.pathname)) {
-      webgazer.setRegression('ridge')
-        .setGazeListener((data, elapsedTime) => {
-          if (!data) return;
-          const payload = {
-            x: data.x,
-            y: data.y,
-            timestamp: elapsedTime,
-            page: window.location.pathname
-          };
-  
-          fetch("/log-eyedata", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-          });
-        })
-        .showPredictionPoints(true)  // Optional
-        .begin();
-    }
-  </script>
+
   
   
   <body>
     <div class="container">{% block content %}{% endblock %}</div>
     {% block scripts %}{% endblock %}
+
+    <script>
+      const path = window.location.pathname.replace(/\/+$/, "");
+      const resumePages = ["/quiz", "/question"];
+    
+      if (resumePages.includes(path)) {
+        console.log("🟢 Eye tracking enabled on:", path);
+    
+        window.onload = () => {
+          setTimeout(() => {
+            if (typeof webgazer !== 'undefined') {
+              webgazer.setRegression('ridge');
+    
+              // 🚨 Disable any click/mouse-based learning
+              webgazer.params.useClickRecalibration = false;
+              webgazer.params.useEyeFeatures = true; // ensure it's using eye feature detection
+              webgazer.params.useFaceOverlay = true;
+    
+              webgazer.begin().then(() => {
+                console.log("✅ WebGazer resumed.");
+    
+                webgazer.showPredictionPoints(true); // red dot
+    
+                webgazer.setGazeListener((data, elapsedTime) => {
+                  if (!data) return;
+    
+                  const payload = {
+                    x: data.x,
+                    y: data.y,
+                    timestamp: elapsedTime,
+                    page: path
+                  };
+    
+                  fetch("/log-eyedata", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                  });
+                });
+              });
+            } else {
+              console.error("❌ WebGazer not loaded.");
+            }
+          }, 1000);
+        };
+      }
+    </script>
+    
+    
   </body>
 </html>
