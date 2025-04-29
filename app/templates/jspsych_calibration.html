@@ -1,6 +1,8 @@
+<!-- jspsych_calibration.html -->
 <!DOCTYPE html>
 <html>
 <head>
+  <!-- jsPsych core + WebGazer extensions -->
   <script src="https://unpkg.com/jspsych@7.3.4"></script>
   <script src="https://cdn.jsdelivr.net/gh/jspsych/jspsych@jspsych@7.0.0/examples/js/webgazer/webgazer.js"></script>
   <script src="https://unpkg.com/@jspsych/extension-webgazer@1.0.3"></script>
@@ -11,78 +13,82 @@
 </head>
 <body></body>
 <script>
-const jsPsych = initJsPsych({
-  extensions: [{ type: jsPsychExtensionWebgazer }]
-});
+  const jsPsych = initJsPsych({
+    extensions: [{ type: jsPsychExtensionWebgazer }]
+  });
 
-const stop_mouse_calibration = {
-  type: jsPsychHtmlButtonResponse,
-  stimulus: `<p>Calibration complete! Gaze tracking will now use your webcam only.</p>`,
-  choices: ['Continue'],
-  on_finish: () => {
-    console.log("🛑 Mouse calibration disabled");
-    //webgazer.stopMouseCalibration();
-  }
-};
-
-
-const timeline = [
-  {
+  // Safely disable mouse fallback and reset calibration
+  const stop_mouse_calibration = {
     type: jsPsychHtmlButtonResponse,
-    stimulus: '<p>Welcome to calibration. Click to begin camera setup.</p>',
-    choices: ['Start']
-  },
-  { type: jsPsychWebgazerInitCamera },
-  {
-    type: jsPsychHtmlButtonResponse,
-    stimulus: '<p>Look at and click the dots to calibrate your gaze.</p>',
-    choices: ['Start Calibration']
-  },
-  {
-    type: jsPsychWebgazerCalibrate,
-    calibration_points: [[25,25], [75,25], [50,50], [25,75], [75,75]],
-    repetitions_per_point: 2,
-    randomize_calibration_order: true
-  },
-  {
-    type: jsPsychHtmlButtonResponse,
-    stimulus: '<p>Now look at the dots (no clicking) to validate calibration.</p>',
-    choices: ['Start Validation']
-  },
-  {
-    type: jsPsychWebgazerValidate,
-    validation_points: [[25,25], [75,25], [50,50], [25,75], [75,75]],
-    roi_radius: 200,
-    time_to_saccade: 1000,
-    validation_duration: 2000,
-    data: { task: 'validate' }
-  },
-  stop_mouse_calibration,
-  {
-    type: jsPsychHtmlButtonResponse,
-    stimulus: '<p>Thanks! Your calibration is complete.</p>',
-    choices: ['Start Quiz'],
+    stimulus: `<p>Calibration complete! Gaze tracking will now use your webcam only.</p>`,
+    choices: ['Continue'],
     on_finish: () => {
-      const validationData = jsPsych.data.get().filter({ task: 'validate' }).values()[0];
-
-      fetch('/log-calibration', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(validationData)
-      })
-      .then(() => {
-        console.log("✅ Calibration logged. Redirecting to /quiz...");
-        window.location.href = '/quiz';
-      })
-      .catch((error) => {
-        console.error("❌ Calibration logging failed:", error);
-        alert("Failed to log calibration. Please check the server.");
-      });
-
+      console.log("🛑 Mouse calibration disabled");
+      try {
+        if (webgazer && typeof webgazer.stopMouseCalibration === 'function') {
+          webgazer.stopMouseCalibration();
+        }
+        if (webgazer && typeof webgazer.resetCalibration === 'function') {
+          webgazer.resetCalibration();
+        }
+      } catch (e) {
+        console.warn("Error disabling mouse fallback – continuing anyway", e);
+      }
     }
-  }
-];
+  };
 
-jsPsych.run(timeline);
+  const timeline = [
+    { type: jsPsychHtmlButtonResponse,
+      stimulus: '<p>Welcome to calibration. Click to begin camera setup.</p>',
+      choices: ['Start']
+    },
+    { type: jsPsychWebgazerInitCamera },
+    { type: jsPsychHtmlButtonResponse,
+      stimulus: '<p>Look at and click the dots to calibrate your gaze.</p>',
+      choices: ['Start Calibration']
+    },
+    { type: jsPsychWebgazerCalibrate,
+      calibration_points: [[25,25],[75,25],[50,50],[25,75],[75,75]],
+      repetitions_per_point: 2,
+      randomize_calibration_order: true
+    },
+    { type: jsPsychHtmlButtonResponse,
+      stimulus: '<p>Now look at the dots (no clicking) to validate calibration.</p>',
+      choices: ['Start Validation']
+    },
+    { type: jsPsychWebgazerValidate,
+      validation_points:   [[25,25],[75,25],[50,50],[25,75],[75,75]],
+      roi_radius:          200,
+      time_to_saccade:     1000,
+      validation_duration: 2000,
+      data: { task: 'validate' }
+    },
+    stop_mouse_calibration,
+    {
+      type: jsPsychHtmlButtonResponse,
+      stimulus: '<p>Thanks! Your calibration is complete.</p>',
+      choices: ['Start Quiz'],
+      on_finish: () => {
+        const validationData = jsPsych.data
+          .get()
+          .filter({ task: 'validate' })
+          .values()[0];
+
+        fetch('/log-calibration', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(validationData)
+        })
+        .then(() => console.log("✅ Calibration logged."))
+        .catch(err => console.warn("⚠️ Calibration log failed:", err))
+        .finally(() => {
+          console.log("➡️ Redirecting to /quiz");
+          window.location.href = '/quiz';
+        });
+      }
+    }
+  ];
+
+  jsPsych.run(timeline);
 </script>
 </html>

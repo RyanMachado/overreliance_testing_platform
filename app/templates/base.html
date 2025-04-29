@@ -1,69 +1,73 @@
+<!-- base.html -->
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <script src="https://cdn.jsdelivr.net/gh/jspsych/jspsych@jspsych@7.0.0/examples/js/webgazer/webgazer.js"></script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Python Quiz</title>
-    <link
-      rel="stylesheet"
-      href="{{ url_for('static', filename='css/style.css') }}"
-    />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <!-- load WebGazer.js -->
+    <script src="https://cdn.jsdelivr.net/gh/jspsych/jspsych@jspsych@7.0.0/examples/js/webgazer/webgazer.js"></script>
   </head>
-
-  
-  
   <body>
     <div class="container">{% block content %}{% endblock %}</div>
-    {% block scripts %}{% endblock %}
-
+    {% block scripts %}
     <script>
       const path = window.location.pathname.replace(/\/+$/, "");
       const resumePages = ["/quiz", "/question"];
-    
-      if (resumePages.includes(path)) {
-        console.log("🟢 Eye tracking enabled on:", path);
-    
-        window.onload = () => {
-          setTimeout(() => {
-            if (typeof webgazer !== 'undefined') {
-              webgazer.setRegression('ridge');
-    
-              // 🚨 Disable any click/mouse-based learning
-              webgazer.params.useClickRecalibration = false;
-              webgazer.params.useEyeFeatures = true; // ensure it's using eye feature detection
-              webgazer.params.useFaceOverlay = true;
-    
-              webgazer.begin().then(() => {
-                console.log("✅ WebGazer resumed.");
-    
-                webgazer.showPredictionPoints(true); // red dot
-    
-                webgazer.setGazeListener((data, elapsedTime) => {
-                  if (!data) return;
-    
-                  const payload = {
-                    x: data.x,
-                    y: data.y,
-                    timestamp: elapsedTime,
-                    page: path
-                  };
-    
-                  fetch("/log-eyedata", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload)
-                  });
-                });
-              });
-            } else {
-              console.error("❌ WebGazer not loaded.");
+      if (resumePages.some(p => path.startsWith(p))) {
+        window.onload = async () => {
+          // give the camera a moment
+          await new Promise(r => setTimeout(r, 500));
+          if (typeof webgazer === "undefined") {
+            return console.error("❌ WebGazer not loaded.");
+          }
+
+          webgazer.setRegression("ridge");
+          webgazer.params.useClickRecalibration = false;
+          webgazer.params.useEyeFeatures     = true;
+          webgazer.params.useFaceOverlay     = true;
+
+          // resume if we've already initialized & detected a face
+          if (webgazer.isInitialized) {
+            webgazer.resume();
+            // … after webgazer.begin() or webgazer.resume() …
+            webgazer.showPredictionPoints(true);
+
+            console.log("🔄 Resumed existing WebGazer model");
+          } else {
+            await webgazer.begin();
+            // … after webgazer.begin() or webgazer.resume() …
+            webgazer.showPredictionPoints(true);
+
+            webgazer.showVideo(true);
+            webgazer.showFaceOverlay(true);
+            webgazer.showFaceFeedbackBox(true);
+            console.log("✅ WebGazer started fresh");
+          }
+
+          webgazer.showPredictionPoints(true);
+          webgazer.setGazeListener((data, elapsedTime) => {
+            if (!data) return;
+            const tracker = webgazer.getTracker();
+            if (tracker && typeof tracker.getCurrentPosition === 'function') {
+              const pos = tracker.getCurrentPosition();
+              if (!pos) return;
             }
-          }, 1000);
+            fetch("/log-eyedata", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                x: data.x,
+                y: data.y,
+                timestamp: elapsedTime,
+                page: path
+              })
+            });
+          });
         };
       }
     </script>
-    
-    
+    {% endblock %}
   </body>
 </html>
